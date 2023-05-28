@@ -1,7 +1,7 @@
 /** @satisfies {import('@webcontainer/api').FileSystemTree} */
 
 export const files = {
-    'index.ts': {
+    'index.js': {
       file: {
         contents: `
   import express from 'express';

@@ -1,9 +1,15 @@
 import './style.css';
 import { WebContainer } from '@webcontainer/api';
 import { files } from './files';
+import { Terminal } from 'xterm';
+import 'xterm/css/xterm.css';
 
 /** @type {import('@webcontainer/api').WebContainer}  */
 let webcontainerInstance: WebContainer;
+
+/** @type {HTMLTextAreaElement | null} */
+const terminalEl = document.querySelector('.terminal');
+
 
 document.querySelector('#app')!.innerHTML = `
   <div class="container">
@@ -11,8 +17,11 @@ document.querySelector('#app')!.innerHTML = `
       <textarea>I am a textarea</textarea>
     </div>
     <div class="preview">
-      <iframe src="loading.html"></iframe>
+      <iframe src="./src/loading.html"></iframe>
     </div>
+  </div>
+  <div>
+    <div class="terminal"></div>
   </div>
 `
 
@@ -23,35 +32,37 @@ const iframeEl = document.querySelector('iframe');
 const textareaEl = document.querySelector('textarea');
 
 window.addEventListener('load', async () => {
-  textareaEl!.value = files['index.ts'].file.contents;
-  // Call only once
-  console.log('Zie ik dit hier?');
-  WebContainer.boot().then(() => {
-    alert('Boot succeeded');
-  })
-  .catch((err) => {
-    alert(err);
+  textareaEl!.value = files['index.js'].file.contents;
+
+  textareaEl!.addEventListener('input', (e) => {
+    writeIndexJS(e!.currentTarget!.value);
   });
+
+  const terminal = new Terminal({
+    convertEol: true,
+  });
+  terminal.open(terminalEl);
+
+  // Call only once
   webcontainerInstance = await WebContainer.boot();
   await webcontainerInstance.mount(files);
  
-  const exitCode = await installDependencies();
+  const exitCode = await installDependencies(terminal);
   if (exitCode !== 0) {
-    alert('Error');
     throw new Error('Installation failed');
   };
 
-  startDevServer();
+  startDevServer(terminal);
 });
 
-async function installDependencies() {
+async function installDependencies(terminal) {
   // Install dependencies
   const installProcess = await webcontainerInstance.spawn('npm', ['install']);
   // Wait for install command to exit
 
   installProcess.output.pipeTo(new WritableStream({
     write(data) {
-      console.log(data);
+      terminal.write(data);
     }
   }));
 
@@ -61,9 +72,20 @@ async function installDependencies() {
 async function startDevServer() {
   // Run `npm run start` to start the Express app
   await webcontainerInstance.spawn('npm', ['run', 'start']);
+  serverProcess.output.pipeTo(
+    new WritableStream({
+      write(data) {
+        terminal.write(data);
+      },
+    })
+  );
 
   // Wait for `server-ready` event
   webcontainerInstance.on('server-ready', (port: any, url: string) => {
     iframeEl!.src = url;
   });
 }
+
+async function writeIndexJS(content) {
+  await webcontainerInstance.fs.writeFile('/index.js', content);
+};
