@@ -7,8 +7,6 @@ import 'xterm/css/xterm.css';
 /** @type {import('@webcontainer/api').WebContainer}  */
 let webcontainerInstance: WebContainer;
 
-/** @type {HTMLTextAreaElement | null} */
-const terminalEl = document.querySelector('.terminal');
 
 
 document.querySelector('#app')!.innerHTML = `
@@ -31,6 +29,9 @@ const iframeEl = document.querySelector('iframe');
 /** @type {HTMLTextAreaElement | null} */
 const textareaEl = document.querySelector('textarea');
 
+/** @type {HTMLTextAreaElement | null} */
+const terminalEl = document.querySelector('.terminal');
+
 window.addEventListener('load', async () => {
   textareaEl!.value = files['index.js'].file.contents;
 
@@ -41,8 +42,10 @@ window.addEventListener('load', async () => {
   const terminal = new Terminal({
     convertEol: true,
   });
-  terminal.open(terminalEl);
 
+  if (terminalEl) {
+    terminal.open(terminalEl);
+  }
   // Call only once
   webcontainerInstance = await WebContainer.boot();
   await webcontainerInstance.mount(files);
@@ -69,9 +72,9 @@ async function installDependencies(terminal) {
   return installProcess.exit;
 }
 
-async function startDevServer() {
+async function startDevServer(terminal) {
   // Run `npm run start` to start the Express app
-  await webcontainerInstance.spawn('npm', ['run', 'start']);
+  const serverProcess = await webcontainerInstance.spawn('npm', ['run', 'start']);
   serverProcess.output.pipeTo(
     new WritableStream({
       write(data) {
