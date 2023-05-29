@@ -3,6 +3,7 @@ import { WebContainer } from '@webcontainer/api';
 import { files } from './files';
 import { Terminal } from 'xterm';
 import 'xterm/css/xterm.css';
+import { FitAddon } from 'xterm-addon-fit';
 
 /** @type {import('@webcontainer/api').WebContainer}  */
 let webcontainerInstance: WebContainer;
@@ -39,56 +40,51 @@ window.addEventListener('load', async () => {
     writeIndexJS(e!.currentTarget!.value);
   });
 
+  const fitAddon = new FitAddon();
   const terminal = new Terminal({
     convertEol: true,
   });
+  terminal.loadAddon(fitAddon);
 
   if (terminalEl) {
     terminal.open(terminalEl);
+    fitAddon.fit();
   }
   // Call only once
   webcontainerInstance = await WebContainer.boot();
   await webcontainerInstance.mount(files);
- 
-  const exitCode = await installDependencies(terminal);
-  if (exitCode !== 0) {
-    throw new Error('Installation failed');
-  };
 
-  startDevServer(terminal);
+  webcontainerInstance.on('server-ready'), (port, url) => {
+    iframeEl!.src = url;
+  };
+  
+  const shellProcess = await startShell(terminal);
+  window.addEventListener('resize', () => {
+    fitAddon.fit();
+    shellProcess.resize({
+      cols: terminal.cols,
+      rows: terminal.rows,
+    });
+  });
 });
 
-async function installDependencies(terminal) {
-  // Install dependencies
-  const installProcess = await webcontainerInstance.spawn('npm', ['install']);
-  // Wait for install command to exit
 
-  installProcess.output.pipeTo(new WritableStream({
-    write(data) {
-      terminal.write(data);
-    }
-  }));
+async function writeIndexJS(content) {
+  await webcontainerInstance.fs.writeFile('/index.js', content);
+};
 
-  return installProcess.exit;
-}
-
-async function startDevServer(terminal) {
-  // Run `npm run start` to start the Express app
-  const serverProcess = await webcontainerInstance.spawn('npm', ['run', 'start']);
-  serverProcess.output.pipeTo(
+async function startShell(terminal) {
+  const shellProcess = await webcontainerInstance.spawn('jsh');
+  shellProcess.output.pipeTo(
     new WritableStream({
       write(data) {
         terminal.write(data);
       },
     })
   );
-
-  // Wait for `server-ready` event
-  webcontainerInstance.on('server-ready', (port: any, url: string) => {
-    iframeEl!.src = url;
+  const input = shellProcess.input.getWriter();
+  terminal.onData((data) => {
+    input.write(data);
   });
-}
-
-async function writeIndexJS(content) {
-  await webcontainerInstance.fs.writeFile('/index.js', content);
+  return shellProcess;
 };
