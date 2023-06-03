@@ -1,8 +1,10 @@
 <script lang="ts">
-  import CodeMirror from './../lib/code-mirror.svelte';
+	import '../app.css';
+	import CodeMirror from './../lib/code-mirror.svelte';
+	import Webcontainer from './../lib/webcontainer.svelte';
 </script>
 
-<CodeMirror />
-
-<style lang="postcss">
-</style>
+<div class="grid grid-cols-2">
+	<CodeMirror />
+	<Webcontainer />
+</div>
