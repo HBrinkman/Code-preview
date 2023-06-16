@@ -7,6 +7,7 @@
 
 	onMount(() => {
 		iframeEl = document.querySelector('#iframe');
+		console.log('onMount webcontainer');
 		spawnWebContainer();
 	});
 
