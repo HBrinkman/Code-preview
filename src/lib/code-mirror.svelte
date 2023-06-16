@@ -1,5 +1,5 @@
 <script lang="ts">
-    import { EditorView } from '@codemirror/view';
+    import { EditorView, ViewUpdate } from '@codemirror/view';
     import {
         crosshairCursor,
         drawSelection,
@@ -21,14 +21,10 @@
     import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
     import { lintKeymap } from '@codemirror/lint';
     import { javascript } from '@codemirror/lang-javascript';
-    import { onMount } from 'svelte';
+    import { onMount, tick } from 'svelte';
     import './codemirror.scss';
 
     let container: HTMLDivElement;
-    let preserveEditorFocus = false;
-    let skipReset = true;
-    let removeFocusTimeout = false;
-    let editorStates = new Map();
     let editorView: EditorView;
 
     const extensions = [
@@ -57,7 +53,10 @@
             ...foldKeymap,
             ...completionKeymap,
             ...lintKeymap
-        ])
+        ]),
+        EditorView.updateListener.of((update: ViewUpdate) => {
+            console.log(update.state.doc);
+        })
     ];
 
     const lang = [javascript({typescript: true})];
@@ -78,7 +77,10 @@ export class AppComponent {
     onMount(() => {
         editorView = new EditorView({
             parent: container,
-            state: state
+            state: state,
+            // async dispatch(transaction) {
+            //     // await tick()
+            // }
         });
 
         return () => {
